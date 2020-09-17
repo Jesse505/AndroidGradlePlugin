@@ -1,11 +1,13 @@
 package com.android.jesse.plugin;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+
 
 public class MainActivity extends AppCompatActivity {
     @Override
@@ -15,7 +17,8 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnToast).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast.makeText(MainActivity.this, "点击了按钮", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Java点击了按钮", Toast.LENGTH_SHORT).show();
+                MainActivity.this.startActivity(new Intent(MainActivity.this, SecondActivity.class));
             }
         });
     }
