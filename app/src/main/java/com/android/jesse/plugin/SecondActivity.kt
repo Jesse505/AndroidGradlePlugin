@@ -12,5 +12,8 @@ class SecondActivity: AppCompatActivity() {
         btnToast.setOnClickListener {
             Toast.makeText(this, "Kotlin点击了按钮", Toast.LENGTH_SHORT).show()
         }
+//        btnToast2.setOnClickListener {
+//            Toast.makeText(this, "Kotlin2点击了按钮", Toast.LENGTH_SHORT).show()
+//        }
     }
 }

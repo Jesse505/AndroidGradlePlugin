@@ -15,4 +15,13 @@
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
+    <Button
+        android:id="@+id/btnToast2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Kotlin 弹个toast2"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnToast"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

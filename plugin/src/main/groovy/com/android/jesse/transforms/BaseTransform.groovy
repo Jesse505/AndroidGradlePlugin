@@ -41,7 +41,6 @@ abstract class BaseTransform extends Transform {
 
     /**
      * 是否是增量编译
-     * @return
      */
     @Override
     boolean isIncremental() {
@@ -50,15 +49,10 @@ abstract class BaseTransform extends Transform {
 
     /**
      * 字节码转换的主要逻辑
-     * @param transformInvocation
-     * @throws TransformException
-     * @throws InterruptedException
-     * @throws IOException
      */
     @Override
     void transform(TransformInvocation transformInvocation) throws TransformException,
             InterruptedException, IOException {
-        println("-----------transform >>>>>>>>> 开始-----------" + getName())
         onBeforeTransform()
         _transform(transformInvocation.context, transformInvocation.inputs,
                 transformInvocation.outputProvider, transformInvocation.incremental)
@@ -67,7 +61,7 @@ abstract class BaseTransform extends Transform {
 
     void _transform(Context context, Collection<TransformInput> inputs, TransformOutputProvider outputProvider,
                     boolean isIncremental) throws IOException, TransformException, InterruptedException {
-        if (!incremental) {
+        if (!isIncremental) {
             outputProvider.deleteAll()
         }
 
@@ -75,69 +69,110 @@ abstract class BaseTransform extends Transform {
         inputs.each { TransformInput input ->
             /**遍历目录*/
             input.directoryInputs.each { DirectoryInput directoryInput ->
-                directoryInput.changedFiles.each {
-
-                }
-                /**当前这个 Transform 输出目录*/
-                File dest = outputProvider.getContentLocation(directoryInput.name,
-                        directoryInput.contentTypes, directoryInput.scopes, Format.DIRECTORY)
-                File dir = directoryInput.file
-
-                println("> src.absolutePath: " + dir.absolutePath)
-                println("> dest.absolutePath: " + dest.absolutePath)
-
-                if (dir) {
-                    HashMap<String, File> modifyMap = new HashMap<>()
-                    /**遍历以某一扩展名结尾的文件*/
-                    dir.traverse(type: FileType.FILES, nameFilter: ~/.*\.class/) {
-                        File classFile ->
-                            String className = classFile.absolutePath.replace(dir.absolutePath + File.separator, "")
-                            if (isShouldModify(className)) {
-                                File modified = modifyClassFile(dir, classFile, context.getTemporaryDir())
-                                if (modified != null) {
-                                    /**key 为包名 + 类名，如：/cn/sensorsdata/autotrack/android/app/MainActivity.class*/
-                                    String ke = classFile.absolutePath.replace(dir.absolutePath, "")
-                                    modifyMap.put(ke, modified)
-                                }
-                            }
-                    }
-                    FileUtils.copyDirectory(directoryInput.file, dest)
-                    modifyMap.entrySet().each {
-                        Map.Entry<String, File> en ->
-                            File target = new File(dest.absolutePath + en.getKey())
-                            if (target.exists()) {
-                                target.delete()
-                            }
-                            FileUtils.copyFile(en.getValue(), target)
-                            en.getValue().delete()
-                    }
-                }
+                processDirectoryInput(context, directoryInput, outputProvider, isIncremental)
             }
 
             /**遍历 jar*/
             input.jarInputs.each { JarInput jarInput ->
-                String destName = jarInput.file.name
-
-                /**截取文件路径的 md5 值重命名输出文件,因为可能同名,会覆盖*/
-                def hexName = DigestUtils.md5Hex(jarInput.file.absolutePath).substring(0, 8)
-                /** 获取 jar 名字*/
-                if (destName.endsWith(".jar")) {
-                    destName = destName.substring(0, destName.length() - 4)
-                }
-
-                /** 获得输出文件*/
-                File dest = outputProvider.getContentLocation(destName + "_" + hexName,
-                        jarInput.contentTypes, jarInput.scopes, Format.JAR)
-                File modifiedJar = modifyJar(jarInput.file, context.getTemporaryDir(), true)
-                if (modifiedJar == null) {
-                    modifiedJar = jarInput.file
-                }
-                FileUtils.copyFile(modifiedJar, dest)
+                processJarInput(context, jarInput, outputProvider, isIncremental)
             }
         }
-
-        println("-----------transform >>>>>>>>> 结束-----------" + getName())
     }
+
+    /**
+     * 处理源码文件
+     * 将修改过的字节码copy到dest,就可以实现编译期间干预字节码的目的
+     */
+    void processDirectoryInput(Context context, DirectoryInput directoryInput,
+                               TransformOutputProvider outputProvider, boolean isIncremental) {
+        directoryInput.changedFiles.each {
+
+        }
+        //当前这个 Transform 输出目录
+        File dest = outputProvider.getContentLocation(directoryInput.name,
+                directoryInput.contentTypes, directoryInput.scopes, Format.DIRECTORY)
+        FileUtils.forceMkdir(dest)
+        //当前这个 Transform 输入目录
+        File dir = directoryInput.file
+
+        println("> src.absolutePath: " + dir.absolutePath)
+        println("> dest.absolutePath: " + dest.absolutePath)
+
+        if (isIncremental) {
+            //TODO：增量更新需要处理
+        } else {
+            transformDirectory(context, dir, dest)
+        }
+
+    }
+
+    /**
+     * 转换单个文件
+     */
+    void transformSingleFile(File inputFile, File destFile) {
+        println("拷贝单个文件")
+        FileUtils.copyFile(inputFile, destFile)
+    }
+
+    /**
+     * 转换文件夹
+     */
+    void transformDirectory(Context context, File dir, File dest) {
+        println("拷贝文件夹 $dest -----")
+        if (dir) {
+            HashMap<String, File> modifyMap = new HashMap<>()
+            /**遍历以某一扩展名结尾的文件*/
+            dir.traverse(type: FileType.FILES, nameFilter: ~/.*\.class/) {
+                File classFile ->
+                    String className = classFile.absolutePath.replace(dir.absolutePath + File.separator, "")
+                    if (isShouldModify(className)) {
+                        File modified = modifyClassFile(dir, classFile, context.getTemporaryDir())
+                        if (modified != null) {
+                            /**key 为包名 + 类名，如：/cn/sensorsdata/autotrack/android/app/MainActivity.class*/
+                            String ke = classFile.absolutePath.replace(dir.absolutePath, "")
+                            modifyMap.put(ke, modified)
+                        }
+                    }
+            }
+            FileUtils.copyDirectory(dir, dest)
+            modifyMap.entrySet().each {
+                Map.Entry<String, File> en ->
+                    File target = new File(dest.absolutePath + en.getKey())
+                    if (target.exists()) {
+                        target.delete()
+                    }
+                    FileUtils.copyFile(en.getValue(), target)
+                    en.getValue().delete()
+            }
+        }
+    }
+
+    /**
+     * 处理jar
+     * 将修改过的字节码copy到dest,就可以实现编译期间干预字节码的目的
+     */
+    void processJarInput(Context context, JarInput jarInput,
+                         TransformOutputProvider outputProvider, boolean isIncremental) {
+
+        String destName = jarInput.file.name
+
+        /**截取文件路径的 md5 值重命名输出文件,因为可能同名,会覆盖*/
+        def hexName = DigestUtils.md5Hex(jarInput.file.absolutePath).substring(0, 8)
+        /** 获取 jar 名字*/
+        if (destName.endsWith(".jar")) {
+            destName = destName.substring(0, destName.length() - 4)
+        }
+
+        /** 获得输出文件*/
+        File dest = outputProvider.getContentLocation(destName + "_" + hexName,
+                jarInput.contentTypes, jarInput.scopes, Format.JAR)
+        File modifiedJar = modifyJar(jarInput.file, context.getTemporaryDir(), true)
+        if (modifiedJar == null) {
+            modifiedJar = jarInput.file
+        }
+        FileUtils.copyFile(modifiedJar, dest)
+    }
+
 
     File modifyClassFile(File dir, File classFile, File tempDir) {
         if (!isModifyEnable()) {
@@ -145,11 +180,13 @@ abstract class BaseTransform extends Transform {
         }
         File modified = null
         try {
-            String className = path2ClassName(classFile.absolutePath.replace(dir.absolutePath + File.separator, ""))
+            String className = path2ClassName(classFile.absolutePath.replace(dir.absolutePath +
+                    File.separator, ""))
             byte[] sourceClassBytes = IOUtils.toByteArray(new FileInputStream(classFile))
             byte[] modifiedClassBytes = modifyClass(sourceClassBytes)
             if (modifiedClassBytes) {
-                modified = new File(tempDir, className.replace('.', '') + '.class')
+                modified = new File(tempDir, className.replace('.', '') +
+                        '.class')
                 if (modified.exists()) {
                     modified.delete()
                 }
@@ -230,8 +267,7 @@ abstract class BaseTransform extends Transform {
     /**
      * 修改class文件
      * @param srcClass 源class
-     * @return 目标class
-     * @throws IOException
+     * @return 目标class* @throws IOException
      */
     abstract byte[] modifyClass(byte[] srcClass) throws IOException;
 
@@ -243,8 +279,12 @@ abstract class BaseTransform extends Transform {
         return true
     }
 
-    void onBeforeTransform() {};
+    void onBeforeTransform() {
+        println("-----------transform >>>>>>>>> 开始-----------" + getName())
+    };
 
-    void onAfterTransform() {};
+    void onAfterTransform() {
+        println("-----------transform >>>>>>>>> 结束-----------" + getName())
+    };
 
 }
