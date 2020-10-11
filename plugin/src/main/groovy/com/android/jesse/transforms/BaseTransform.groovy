@@ -44,7 +44,7 @@ abstract class BaseTransform extends Transform {
      */
     @Override
     boolean isIncremental() {
-        return false
+        return true
     }
 
     /**
@@ -85,9 +85,6 @@ abstract class BaseTransform extends Transform {
      */
     void processDirectoryInput(Context context, DirectoryInput directoryInput,
                                TransformOutputProvider outputProvider, boolean isIncremental) {
-        directoryInput.changedFiles.each {
-
-        }
         //当前这个 Transform 输出目录
         File dest = outputProvider.getContentLocation(directoryInput.name,
                 directoryInput.contentTypes, directoryInput.scopes, Format.DIRECTORY)
@@ -99,7 +96,29 @@ abstract class BaseTransform extends Transform {
         println("> dest.absolutePath: " + dest.absolutePath)
 
         if (isIncremental) {
-            //TODO：增量更新需要处理
+            String srcDirPath = dir.absolutePath
+            String destDirPath = dest.absolutePath
+            directoryInput.changedFiles.each {
+                Map.Entry<File, Status> changedFile ->
+                    Status status = changedFile.getValue()
+                    File inputFile = changedFile.getKey()
+                    String destFilePath = inputFile.absolutePath.replace(srcDirPath, destDirPath)
+                    File destFile = new File(destFilePath)
+                    switch (status) {
+                        case Status.NOTCHANGED:
+                            break
+                        case Status.ADDED:
+                        case Status.CHANGED:
+                            FileUtils.touch(destFile)
+                            transformSingleFile(context, dir, inputFile, destFile)
+                            break
+                        case Status.REMOVED:
+                            if (destFile.exists()) {
+                                FileUtils.forceDelete(destFile)
+                            }
+                            break
+                    }
+            }
         } else {
             transformDirectory(context, dir, dest)
         }
@@ -109,8 +128,19 @@ abstract class BaseTransform extends Transform {
     /**
      * 转换单个文件
      */
-    void transformSingleFile(File inputFile, File destFile) {
-        println("拷贝单个文件")
+    void transformSingleFile(Context context, File dir, File inputFile, File destFile) {
+        println("--------- 拷贝单个文件 ---------")
+        println("inputFile: " + inputFile.absolutePath)
+        println("destFile: " + destFile.absolutePath)
+
+        String className = inputFile.absolutePath.replace(dir.absolutePath + File.separator, "")
+        if (className.endsWith(".class") && isShouldModify(className)) {
+            File modified = modifyClassFile(dir, inputFile, context.getTemporaryDir())
+            if (modified != null) {
+                FileUtils.copyFile(modified, destFile)
+                return
+            }
+        }
         FileUtils.copyFile(inputFile, destFile)
     }
 
@@ -118,7 +148,7 @@ abstract class BaseTransform extends Transform {
      * 转换文件夹
      */
     void transformDirectory(Context context, File dir, File dest) {
-        println("拷贝文件夹 $dest -----")
+        println("--------- 拷贝文件夹 $dest ---------")
         if (dir) {
             HashMap<String, File> modifyMap = new HashMap<>()
             /**遍历以某一扩展名结尾的文件*/
@@ -153,7 +183,6 @@ abstract class BaseTransform extends Transform {
      */
     void processJarInput(Context context, JarInput jarInput,
                          TransformOutputProvider outputProvider, boolean isIncremental) {
-
         String destName = jarInput.file.name
 
         /**截取文件路径的 md5 值重命名输出文件,因为可能同名,会覆盖*/
@@ -162,13 +191,37 @@ abstract class BaseTransform extends Transform {
         if (destName.endsWith(".jar")) {
             destName = destName.substring(0, destName.length() - 4)
         }
-
         /** 获得输出文件*/
         File dest = outputProvider.getContentLocation(destName + "_" + hexName,
                 jarInput.contentTypes, jarInput.scopes, Format.JAR)
-        File modifiedJar = modifyJar(jarInput.file, context.getTemporaryDir(), true)
+
+        if (isIncremental) {
+            switch (jarInput.status) {
+                case Status.NOTCHANGED:
+                    break
+                case Status.ADDED:
+                case Status.CHANGED:
+                    transformJar(context, jarInput.file, dest)
+                    break
+                case Status.REMOVED:
+                    if (dest.exists()) {
+                        FileUtils.forceDelete(dest)
+                    }
+                    break
+            }
+        } else {
+            transformJar(context, jarInput.file, dest)
+        }
+    }
+
+    /**
+     *  转换Jar
+     */
+    void transformJar(Context context, File jarInputFile, File dest) {
+
+        File modifiedJar = modifyJar(jarInputFile, context.getTemporaryDir(), true)
         if (modifiedJar == null) {
-            modifiedJar = jarInput.file
+            modifiedJar = jarInputFile
         }
         FileUtils.copyFile(modifiedJar, dest)
     }

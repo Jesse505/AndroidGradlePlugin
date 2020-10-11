@@ -1,3 +1,4 @@
+repo/
 *.iml
 .gradle
 /local.properties
@@ -13,5 +14,5 @@
 /captures
 .externalNativeBuild
 .cxx
-repo
+
 
