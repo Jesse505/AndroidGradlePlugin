@@ -2,16 +2,20 @@ package com.android.jesse.transforms
 
 import com.android.build.api.transform.*
 import com.android.build.gradle.internal.pipeline.TransformManager
+import com.android.ide.common.internal.WaitableExecutor
 import groovy.io.FileType
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 
+import java.util.concurrent.Callable
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
 
 abstract class BaseTransform extends Transform {
+
+    public WaitableExecutor mWaitableExecutor = WaitableExecutor.useGlobalSharedThreadPool()
 
     /**
      * 需要处理的数据类型，有两种枚举类型
@@ -69,14 +73,29 @@ abstract class BaseTransform extends Transform {
         inputs.each { TransformInput input ->
             /**遍历目录*/
             input.directoryInputs.each { DirectoryInput directoryInput ->
-                processDirectoryInput(context, directoryInput, outputProvider, isIncremental)
+
+                mWaitableExecutor.execute(new Callable<Object>() {
+                    @Override
+                    Object call() throws Exception {
+                        processDirectoryInput(context, directoryInput, outputProvider, isIncremental)
+                        return null
+                    }
+                })
             }
 
             /**遍历 jar*/
             input.jarInputs.each { JarInput jarInput ->
-                processJarInput(context, jarInput, outputProvider, isIncremental)
+
+                mWaitableExecutor.execute(new Callable<Object>() {
+                    @Override
+                    Object call() throws Exception {
+                        processJarInput(context, jarInput, outputProvider, isIncremental)
+                        return null
+                    }
+                })
             }
         }
+        mWaitableExecutor.waitForTasksWithQuickFail(true)
     }
 
     /**

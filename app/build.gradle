@@ -3,6 +3,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 //方法全局替换插件
 apply plugin: 'com.android.jesse.replaceplugin'
+apply plugin: 'com.android.jesse.buildplugin'
 
 android {
     compileSdkVersion 29
