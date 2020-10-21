@@ -1,0 +1,1 @@
+-keeppackage com/android/jesse/plugin/SecondActivity

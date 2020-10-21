@@ -1,6 +1,6 @@
 package com.android.jesse.transforms
 
-
+import com.android.jesse.Log
 import com.android.jesse.ReplaceBuildConfig
 import com.android.jesse.extension.ReplaceExtension
 import com.android.jesse.visitor.ReplaceClassVisitor
@@ -20,8 +20,13 @@ class ReplaceTransform extends BaseTransform {
 
     @Override
     boolean isShouldModify(String className) {
-        exclude.add('android.support')
+        //不需要修改字节码的一些包前缀
+        exclude.add('android/support')
         exclude.add('androidx')
+
+        replaceBuildConfig?.mBlackPackageList?.each {
+            String blackPackage -> exclude.add(blackPackage)
+        }
 
         Iterator<String> iterator = exclude.iterator()
         while (iterator.hasNext()) {
@@ -31,6 +36,7 @@ class ReplaceTransform extends BaseTransform {
             }
         }
 
+        //自动生成的一些文件不需要修改字节码
         if (className.contains('R$') ||
                 className.contains('R2$') ||
                 className.contains('R.class') ||
@@ -39,8 +45,17 @@ class ReplaceTransform extends BaseTransform {
             return false
         }
 
+        //替换的目标class不需要修改字节码
         for (int i = 0; i < replaceBuildConfig?.mReplaceMents?.size(); i++) {
             if (replaceBuildConfig?.mReplaceMents?.get(i)?.dstClass ==
+                    className.replace(".class", "")) {
+                return false
+            }
+        }
+
+        //配置的一些class不需要修改字节码
+        for (int i = 0; i < replaceBuildConfig?.mBlackClassList?.size(); i++) {
+            if (replaceBuildConfig?.mBlackClassList?.get(i) ==
                     className.replace(".class", "")) {
                 return false
             }
@@ -68,6 +83,7 @@ class ReplaceTransform extends BaseTransform {
         super.onBeforeTransform()
         final ReplaceBuildConfig replaceConfig = initConfig()
         replaceConfig.parseReplaceFile()
+        replaceConfig.parseBlackFile()
         replaceBuildConfig = replaceConfig
     }
 
@@ -77,6 +93,6 @@ class ReplaceTransform extends BaseTransform {
     }
 
     private ReplaceBuildConfig initConfig() {
-        return new ReplaceBuildConfig(replaceExtension.replaceListDir)
+        return new ReplaceBuildConfig(replaceExtension.replaceListFile, replaceExtension.blackListFile)
     }
 }

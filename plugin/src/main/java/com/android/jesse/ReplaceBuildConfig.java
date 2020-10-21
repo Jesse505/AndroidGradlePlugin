@@ -1,6 +1,5 @@
 package com.android.jesse;
 
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,24 +8,40 @@ public class ReplaceBuildConfig {
 
     private static final String TAG = "ReplaceBuildConfig";
 
-    private final String mReplaceListDir;
+    private final String mReplaceListFile;
+    private final String mBlackListFile;
     private final List<ReplaceMent> mReplaceMents;
 
-    public ReplaceBuildConfig(String mReplaceListDir) {
-        this.mReplaceListDir = mReplaceListDir;
+    private final List<String> mBlackClassList;
+    private final List<String> mBlackPackageList;
+
+
+    public ReplaceBuildConfig(String replaceListFile, String blackListFile) {
+        this.mReplaceListFile = replaceListFile;
+        this.mBlackListFile = blackListFile;
         mReplaceMents = new ArrayList<>();
+        mBlackClassList = new ArrayList<>();
+        mBlackPackageList = new ArrayList<>();
     }
 
     public List<ReplaceMent> getmReplaceMents() {
         return mReplaceMents;
     }
 
+    public List<String> getmBlackClassList() {
+        return mBlackClassList;
+    }
+
+    public List<String> getmBlackPackageList() {
+        return mBlackPackageList;
+    }
+
     public void parseReplaceFile() {
-        if (Util.isNullOrNil(mReplaceListDir)) {
-            Log.w(TAG, "replaceListDir not config");
+        if (Util.isNullOrNil(mReplaceListFile)) {
+            Log.w(TAG, "replaceListFile not config");
             return;
         }
-        File replaceConfigFile = new File(mReplaceListDir);
+        File replaceConfigFile = new File(mReplaceListFile);
         if (!replaceConfigFile.exists()) {
             Log.w(TAG, "replace config file not exist %s", replaceConfigFile.getAbsoluteFile());
             return;
@@ -47,6 +62,28 @@ public class ReplaceBuildConfig {
                 continue;
             }
             mReplaceMents.add(getReplaceMent(replaceMentStr));
+        }
+    }
+
+    public void parseBlackFile() {
+        if (Util.isNullOrNil(mBlackListFile)) {
+            Log.w(TAG, "blackListFile not config");
+            return;
+        }
+        File blackListFile = new File(mBlackListFile);
+        if (!blackListFile.exists()) {
+            Log.w(TAG, "black config file not exist %s", blackListFile.getAbsoluteFile());
+            return;
+        }
+        String blackStr = Util.readFileAsString(blackListFile.getAbsolutePath());
+        String[] blackArray = blackStr.split("\n");
+
+        for (String black : blackArray) {
+            if (black.startsWith("-keepclass ")) {
+                mBlackClassList.add(black.replace("-keepclass ", ""));
+            } else if (black.startsWith("-keeppackage ")) {
+                mBlackPackageList.add(black.replace("-keeppackage ", ""));
+            }
         }
     }
 

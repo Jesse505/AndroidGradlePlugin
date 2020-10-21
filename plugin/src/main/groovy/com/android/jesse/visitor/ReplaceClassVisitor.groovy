@@ -36,7 +36,7 @@ class ReplaceClassVisitor extends ClassVisitor implements Opcodes {
         @Override
         void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
-            if (!mReplaceBuildConfig.getmReplaceMents().isEmpty()) {
+            if (!mReplaceBuildConfig.getmReplaceMents()?.isEmpty()) {
                 for (int i = 0; i < mReplaceBuildConfig.getmReplaceMents().size(); i++) {
                     ReplaceBuildConfig.ReplaceMent replaceMent = mReplaceBuildConfig.getmReplaceMents().get(i)
                     if (owner == replaceMent.getSrcClass() && name == replaceMent.getSrcMethodName()

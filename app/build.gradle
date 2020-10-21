@@ -34,5 +34,6 @@ dependencies {
 //方法全局替换插件的配置
 replace {
     enable = true
-    replaceListDir = "${project.projectDir}/ReplaceMethodList.txt"
+    replaceListFile = "${project.projectDir}/ReplaceMethodList.txt"
+    blackListFile = "${project.projectDir}/BlackList.txt"
 }
