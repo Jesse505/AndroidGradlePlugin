@@ -3,6 +3,7 @@ package com.android.jesse.transforms
 import com.android.build.api.transform.*
 import com.android.build.gradle.internal.pipeline.TransformManager
 import com.android.ide.common.internal.WaitableExecutor
+import com.android.jesse.Log
 import groovy.io.FileType
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.FileUtils
@@ -14,6 +15,8 @@ import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
 
 abstract class BaseTransform extends Transform {
+
+
 
     public WaitableExecutor mWaitableExecutor = WaitableExecutor.useGlobalSharedThreadPool()
 
@@ -111,8 +114,8 @@ abstract class BaseTransform extends Transform {
         //当前这个 Transform 输入目录
         File dir = directoryInput.file
 
-        println("> src.absolutePath: " + dir.absolutePath)
-        println("> dest.absolutePath: " + dest.absolutePath)
+        Log.i("BaseTransform", "> src.absolutePath: " + dir.absolutePath)
+        Log.i("BaseTransform", "> dest.absolutePath: " + dest.absolutePath)
 
         if (isIncremental) {
             String srcDirPath = dir.absolutePath
@@ -148,7 +151,6 @@ abstract class BaseTransform extends Transform {
      * 转换单个文件
      */
     void transformSingleFile(Context context, File dir, File inputFile, File destFile) {
-        println("--------- 拷贝单个文件 ---------")
         println("inputFile: " + inputFile.absolutePath)
         println("destFile: " + destFile.absolutePath)
 
@@ -167,7 +169,6 @@ abstract class BaseTransform extends Transform {
      * 转换文件夹
      */
     void transformDirectory(Context context, File dir, File dest) {
-        println("--------- 拷贝文件夹 $dest ---------")
         if (dir) {
             HashMap<String, File> modifyMap = new HashMap<>()
             /**遍历以某一扩展名结尾的文件*/
@@ -352,11 +353,11 @@ abstract class BaseTransform extends Transform {
     }
 
     void onBeforeTransform() {
-        println("-----------transform >>>>>>>>> 开始-----------" + getName())
+        Log.i("BaseTransform", "---------- ${getName()} 开始 ----------")
     };
 
     void onAfterTransform() {
-        println("-----------transform >>>>>>>>> 结束-----------" + getName())
+        Log.i("BaseTransform", "---------- ${getName()} 结束 ----------")
     };
 
 }
