@@ -1,0 +1,148 @@
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'maven-publish'
+apply plugin: 'java'
+apply plugin: 'signing'
+apply plugin: 'maven'
+
+Properties properties = new Properties()
+File localPropertiesFile = project.rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    properties.load(localPropertiesFile.newDataInputStream())
+}
+File projectPropertiesFile = project.file("project.properties")
+if (projectPropertiesFile.exists()) {
+    properties.load(projectPropertiesFile.newDataInputStream())
+}
+
+//读取属性
+def projectRepositoryName = properties.getProperty("project.repositoryName")
+def projectName = properties.getProperty("project.name")
+def projectGroupId = properties.getProperty("project.groupId")
+def projectArtifactId = properties.getProperty("project.artifactId")
+def projectVersionName = properties.getProperty("project.versionName")
+def projectPackaging = properties.getProperty("project.packaging")
+def projectSiteUrl = properties.getProperty("project.siteUrl")
+def projectGitUrl = properties.getProperty("project.gitUrl")
+
+def developerId = properties.getProperty("developer.id")
+def developerName = properties.getProperty("developer.name")
+def developerEmail = properties.getProperty("developer.email")
+
+def bintrayUser = properties.getProperty("bintray.user")
+def bintrayApikey = properties.getProperty("bintray.apikey")
+
+def javadocName = properties.getProperty("javadoc.name")
+
+group = projectGroupId
+project.archivesBaseName = projectArtifactId
+version = projectVersionName
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+task sourceJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+ext {
+    pomFilePath = "${project.buildDir.absolutePath}/tmp/pom.xml"
+    pomFile = file(pomFilePath)
+}
+
+configurations {
+    pom
+}
+
+artifacts {
+    archives jar
+    archives sourceJar
+    archives javadocJar
+    if (pomFile.exists()) {
+        pom pomFile
+    }
+}
+
+task signJars(type: Sign, dependsOn: [jar, javadocJar, sourceJar]) {
+    sign configurations.archives
+}
+
+task signPom(type: Sign) {
+    sign configurations.pom
+}
+
+if (project.ext.pomFile.exists()) {
+    task preparePublication(dependsOn: [signJars, signPom])
+} else {
+    task preparePublication(dependsOn: signJars)
+}
+
+def getSignatureFiles = {
+    def allFiles = project.tasks.signJars.signatureFiles.collect { it }
+    def signedSources = allFiles.find { it.name.contains('-sources') }
+    def signedJavadoc = allFiles.find { it.name.contains('-javadoc') }
+    def signedJar = (allFiles - [signedSources, signJars])[0]
+    return [
+            [archive: signedSources, classifier: 'sources', extension: 'jar.asc'],
+            [archive: signedJavadoc, classifier: 'javadoc', extension: 'jar.asc'],
+            [archive: signedJar, classifier: 'null', extension: 'jar.asc']
+    ]
+}
+
+def getPomSignature = {
+    return project.tasks.signPom.signatureFiles.collect { it }[0]
+}
+
+// 配置生成POM.xml文件的参数
+install {
+    repositories.mavenInstaller {
+        pom {
+            project {
+                name projectName
+                packaging projectPackaging
+                url projectSiteUrl
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id developerId
+                        name developerName
+                        email developerEmail
+                    }
+                }
+                scm {
+                    connection projectGitUrl
+                    developerConnection projectGitUrl
+                    url projectSiteUrl
+                }
+            }
+        }
+    }
+}
+
+bintray {
+    user = bintrayUser
+    key = bintrayApikey
+
+    pkg {
+        repo = projectRepositoryName
+        name = projectName
+        websiteUrl = projectSiteUrl
+        vcsUrl = projectGitUrl
+        licenses = ["Apache-2.0"]
+        labels = 'Groovy'
+        publish = true
+        version {
+            name = projectVersionName + '-release'
+            desc = projectName + projectVersionName
+            vcsTag = projectVersionName
+        }
+    }
+    configurations = ['archives']
+}
