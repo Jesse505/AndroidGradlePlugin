@@ -1,1 +1,2 @@
 android/widget/Toast.show()V=com/android/jesse/plugin/ToastUtil.showToast(Landroid/widget/Toast;)V
+android/text/Html.fromHtml(Ljava/lang/String;)Landroid/text/Spanned;=com/android/jesse/plugin/HtmlUtil.fromHtml(Ljava/lang/String;)Landroid/text/Spanned;

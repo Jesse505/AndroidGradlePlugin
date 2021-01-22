@@ -2,7 +2,9 @@ package com.android.jesse.plugin;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Html;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -21,5 +23,7 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.this.startActivity(new Intent(MainActivity.this, SecondActivity.class));
             }
         });
+        //在编译时通过ASM修改字节码，把Html.fromHtml()静态方法改为HtmlUtil.fromHtml()方法，防止出现NPE
+        ((TextView)findViewById(R.id.tvHtml)).setText(Html.fromHtml(null));
     }
 }
